@@ -1,37 +1,22 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Card from '../components/Card.astro';
 ---
 
-<Layout title="Welcome to Astro.">
+<Layout title="TutorBees.net | Internet Speed Test">
 	<main>
-		<h1>Welcome to <span class="text-gradient">Astro</span></h1>
+		<h1><span class="text-accent d-block">TutorBees.net</span> Internet Speed Test</h1>
 		<p class="instructions">
-			To get started, open the directory <code>src/pages</code> in your project.<br />
-			<strong>Code Challenge:</strong> Tweak the "Welcome to Astro" message above.
+			<strong class="d-block">Instructions:</strong>
+			Click the <code>Start Test</code> button below to begin the test.
+			<br />
+			The test will download files from the internet and calculate your average download speed.
 		</p>
-		<ul role="list" class="link-card-grid">
-			<Card
-				href="https://docs.astro.build/"
-				title="Documentation"
-				body="Learn how Astro works and explore the official API docs."
-			/>
-			<Card
-				href="https://astro.build/integrations/"
-				title="Integrations"
-				body="Supercharge your project with new frameworks and libraries."
-			/>
-			<Card
-				href="https://astro.build/themes/"
-				title="Themes"
-				body="Explore a galaxy of community-built starter themes."
-			/>
-			<Card
-				href="https://astro.build/chat/"
-				title="Community"
-				body="Come say hi to our amazing Discord community. ❤️"
-			/>
-		</ul>
+		<button>
+			Start Test
+		</button>
+		<p class="result">
+			<code id="speed-display">0.00 Mbps</code>
+		</p>
 	</main>
 </Layout>
 
@@ -40,20 +25,25 @@ import Card from '../components/Card.astro';
 		margin: auto;
 		padding: 1.5rem;
 		max-width: 60ch;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 	}
 	h1 {
 		font-size: 3rem;
 		font-weight: 800;
 		margin: 0;
+		text-align: center;
 	}
-	.text-gradient {
-		background-image: var(--accent-gradient);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-size: 400%;
-		background-position: 0%;
+	.text-accent {
+		color: rgb(var(--accent));
 	}
-	.instructions {
+
+	.d-block {
+		display: block;
+	}
+
+	.instructions, .result {
 		line-height: 1.6;
 		margin: 1rem 0;
 		border: 1px solid rgba(var(--accent), 25%);
@@ -61,14 +51,17 @@ import Card from '../components/Card.astro';
 		padding: 1rem;
 		border-radius: 0.4rem;
 	}
+
 	.instructions code {
 		font-size: 0.875em;
 		font-weight: bold;
 		background: rgba(var(--accent), 12%);
 		color: rgb(var(--accent));
 		border-radius: 4px;
+		margin-top: 0.5rem;
 		padding: 0.3em 0.45em;
 	}
+
 	.instructions strong {
 		color: rgb(var(--accent));
 	}
@@ -78,4 +71,133 @@ import Card from '../components/Card.astro';
 		gap: 1rem;
 		padding: 0;
 	}
+
+	button {
+		all: unset;
+		display: flex;
+		justify-content: center;
+		gap: 0.5rem;
+		align-items: center;
+		line-height: 1.4;
+		padding: 0.925rem 1.5rem;
+		border-radius: 0.35rem;
+		color: #111;
+		background-color: white;
+		opacity: 0.8;
+		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+		font-size: 1.5rem;
+		transition: color 0.6s cubic-bezier(0.22, 1, 0.36, 1) background-color 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	button:is(:hover, :focus, :active) {
+		background-color: rgb(var(--accent));
+		color: white;
+	}
+
+	button:is(:disabled) {
+		opacity: 0.5;
+	}
+
+	.result code {
+		font-size: 2rem;
+		font-weight: bold;
+		background: rgba(var(--accent), 12%);
+		color: rgb(var(--accent));
+		border-radius: 4px;
+		margin-top: 0.5rem;
+		padding: 0.3em 0.45em;
+	}
+
+	.result code[data-internet-state="good"] {
+		background-color: rgb(var(--good));
+		color: white;
+	}
+
+	.result code[data-internet-state="ok"] {
+		background-color: rgb(var(--ok));
+		color: white;
+	}
+
+	.result code[data-internet-state="bad"] {
+		background-color: rgb(var(--bad));
+		color: white;
+	}
 </style>
+
+
+<script>
+	const getSpeed = async (url: string) => {
+		const start = performance.now()
+		const response = await fetch(`${url}?_id=${Math.random()}`, {
+			method: "GET",
+			cache: "no-cache",
+			headers: {
+				"Cache-Control": "no-cache",
+			},
+		});
+		const blob = await response.blob();
+		const end = performance.now();
+		const duration = end - start;
+		const size = blob.size // bytes;
+		return (size / duration) * 1000 / 1000000; // MBps
+	}
+
+	const setDownloadSpeed = (
+		speedDisplay: HTMLElement,
+		speeds: number[]
+	) => {
+		const averageSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+
+		// Display the result.
+		speedDisplay.textContent = `${(averageSpeed).toFixed(2)} MBps`;
+
+		speedDisplay.dataset.internetState = (
+			averageSpeed > 0.75
+				? "good"
+				: averageSpeed > 0.5
+				? "ok"
+				: "bad"
+		);
+
+		return averageSpeed;
+	};
+
+	const startTest = async () => {
+		const button = document.querySelector("button");
+		const speedDisplay = document.querySelector("#speed-display");
+
+		try {
+			if (!speedDisplay || !(speedDisplay instanceof HTMLElement))
+				throw new Error("Speed display not found.");
+			if (!button) throw new Error("Button not found.");
+
+
+			// Set the button to loading state.
+			button.setAttribute("disabled", "");
+			speedDisplay.dataset.internetState = undefined;
+			button.blur();
+
+			// Run the speed test 100 times and average the results.
+			const speeds = [];
+
+			for (let i = 1; i <= 5; i++) {
+				button.textContent = `Downloading ${i}MB file... (${i}/5)`;
+				speeds.push(await getSpeed(`./download/${i}.dat`));
+				setDownloadSpeed(speedDisplay, speeds);
+			}
+		}
+		catch (error) {
+			console.error(error);
+		}
+		finally {
+			if (!button) return;
+
+			// Set the button to normal state.
+			button.textContent = "Start Test";
+			button.removeAttribute("disabled");
+		}
+	};
+
+	// Attach a click event listener to the button.
+	document.querySelector("button")?.addEventListener("click", startTest);
+</script>
